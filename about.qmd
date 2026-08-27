@@ -1,6 +1,22 @@
 ---
-title: "About"
+title: 'About'
 ---
 
-About this site
+Simulated Federated Learning flow.
+Only a single round is run for tnis demo.
+
+Uses inbuilt iris dataset as data.
+
+Data are sampled at random by three different "organizations".
+
+On the first iteration:
+
+- Global params are set at naive values
+- Each org samples half of the dataset (75 rows)
+
+Then following is run for all iterations:
+
+- Each org fits a local model by gradient descent
+- Local params are collected, and aggregated
+- Aggregated params are used to update the initial global params
 
