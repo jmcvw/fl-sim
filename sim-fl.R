@@ -1,4 +1,4 @@
-LoadPackages(dplyr, tidyr, purrr, ggplot2)
+# LoadPackages(dplyr, tidyr, purrr, ggplot2)
 # rm(new_global_params)
 # i(reset = 0)
 
@@ -56,19 +56,24 @@ LoadPackages(dplyr, tidyr, purrr, ggplot2)
 #
 fit_gradient_descent <- function(data,
                                  starting_params = c(intercept = 0, slope = 0),
-                                 learning_rate = 0.1,
+                                 learning_rate = 0.05,
                                  n_iter = 20) {
 
 
   np <- starting_params
 
-  n <- length(y)
+  n <- nrow(data)
 
   for (i in 1:n_iter) {
     preds <- np['intercept'] + np['slope'] * data$Petal.Width
     err   <- preds - data$Petal.Length
 
-    np <- c(intercept, slope) - c((2 / n) * sum(err), (2 / n) * sum(err * x))
+    gradient <- c(
+      (2 / n) * sum(err),
+      (2 / n) * sum(err * data$Petal.Width)
+    )
+
+    np <- np - learning_rate * gradient
   }
 
   np
@@ -138,7 +143,7 @@ global_params <- if (exists('new_global_params')) new_global_params else c(inter
 # The seed makes the exercise reproducible.
 
 # i(reset = 0)
-iter_number <- as.integer(i())
+iter_number <- 1 # as.integer(i())
 
 n_sample <- nrow(iris)
 
@@ -193,7 +198,6 @@ org3_rmse_before <- calculate_rmse(org3_window, global_params)
 #
 # But each organisation performs the optimisation against
 # its OWN local data.
-
 org1_params <- fit_gradient_descent(org1_window, global_params)
 org2_params <- fit_gradient_descent(org2_window, global_params)
 org3_params <- fit_gradient_descent(org3_window, global_params)
@@ -275,9 +279,6 @@ par(op)
 # DISPLAY THE NEW GLOBAL PARAMETERS
 # ------------------------------------------------------------
 
-new_global_params
-
-print(results)
 
 cat(
   'Petal.Length = ',
@@ -287,6 +288,10 @@ cat(
   ' * Petal.Width\n',
   sep = ''
 )
+
+print(results, row.names = FALSE)
+
+
 
 
 # ------------------------------------------------------------
