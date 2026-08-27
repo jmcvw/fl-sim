@@ -2,11 +2,8 @@
 title: "tmp-site"
 ---
 
-This is a Quarto website.
-
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
-
 ```{r}
+#| echo: false
 source('sim-fl.R')
 ```
 
