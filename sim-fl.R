@@ -1,4 +1,4 @@
-if (reset == TRUE) {
+if (exists('reset') && reset) {
   rm(iter_number, global_params, aggregated_params)
   reset <-  FALSE
 }
