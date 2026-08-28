@@ -1,6 +1,7 @@
-# LoadPackages(dplyr, tidyr, purrr, ggplot2)
-# rm(new_global_params)
-# i(reset = 0)
+if (reset == TRUE) {
+  rm(iter_number, global_params, aggregated_params)
+  reset <-  FALSE
+}
 
 # ============================================================
 # Simple Federated Learning simulation
@@ -56,7 +57,7 @@
 #
 fit_gradient_descent <- function(data,
                                  starting_params = c(intercept = 0, slope = 0),
-                                 learning_rate = 0.05,
+                                 learning_rate = 0.01,
                                  n_iter = 20) {
 
 
@@ -97,17 +98,21 @@ calculate_rmse <- function(data, params) {
 # SETTINGS
 # ------------------------------------------------------------
 
-plot_org <- function(org, d, p, g, col, l = TRUE) {
+plot_org <- function(org, d, p, g = NULL, col, l = TRUE) {
   plot(Petal.Length ~ Petal.Width, d,
        xlim = c(0, max(d$Petal.Width)),
        ylim = c(0, max(d$Petal.Length)),
-       type = 'n', bty = 'l',
+       type = 'n', bty = 'l', las = 1,
        main = sprintf('Org %s: round %s', org, iter_number))
   points(Petal.Length ~ Petal.Width, d, pch = 20)
   abline(g, col = 1, lwd = 3)
   abline(p, col = col, lwd = 3, lty = 2)
+  abline(global_params, col = 8, lwd = 2, lty = 3)
   # text(... params ...)
-  if (l) legend('topleft', legend = c('global', 'local'), lty = 1:2, col = c(1, col))
+  if (l)
+    legend('bottomright',
+           legend = c('global', 'local', 'starting'),
+           cex = .6, bty = 'n', lty = 1:3, col = c(1, col, 8))
 }
 
 # ------------------------------------------------------------
@@ -130,8 +135,9 @@ n_iter <- 20
 #
 # After each round, replace these values with the new aggregated global parameters
 
-# rm(new_global_params)
-global_params <- if (exists('new_global_params')) new_global_params else c(intercept = 3, slope = 0)
+# rm(aggregated_params)
+iter_number <- if (exists('iter_number')) iter_number + 1 else 1
+global_params <- if (exists('aggregated_params')) aggregated_params else c(intercept = 3, slope = 0)
 
 # ------------------------------------------------------------
 # CREATE EACH ORGANISATION'S LOCAL DATA
@@ -142,10 +148,8 @@ global_params <- if (exists('new_global_params')) new_global_params else c(inter
 #
 # The seed makes the exercise reproducible.
 
-# i(reset = 0)
-iter_number <- 1 # as.integer(i())
 
-n_sample <- nrow(iris)
+
 
 sample_data <- function(d, n = nrow(d) %/% 2, p = nrow(d)) {
   # sample_n(d, n, replace = TRUE)
@@ -154,9 +158,9 @@ sample_data <- function(d, n = nrow(d) %/% 2, p = nrow(d)) {
 
 set.seed(99 + iter_number)
 if (iter_number == 1) {
-  org1_data <- sample_data(iris, n_sample)
-  org2_data <- sample_data(iris, n_sample)
-  org3_data <- sample_data(iris, n_sample)
+  org1_data <- sample_data(iris)
+  org2_data <- sample_data(iris)
+  org3_data <- sample_data(iris)
 } else {
   org1_data <- rbind(org1_data, sample_data(iris, 15))
   org2_data <- rbind(org2_data, sample_data(iris, 15))
@@ -198,9 +202,9 @@ org3_rmse_before <- calculate_rmse(org3_window, global_params)
 #
 # But each organisation performs the optimisation against
 # its OWN local data.
-org1_params <- fit_gradient_descent(org1_window, global_params)
-org2_params <- fit_gradient_descent(org2_window, global_params)
-org3_params <- fit_gradient_descent(org3_window, global_params)
+org1_params <- fit_gradient_descent(org1_window, global_params, learning_rate, n_iter)
+org2_params <- fit_gradient_descent(org2_window, global_params, learning_rate, n_iter)
+org3_params <- fit_gradient_descent(org3_window, global_params, learning_rate, n_iter)
 
 
 # ------------------------------------------------------------
@@ -225,12 +229,17 @@ results <- data.frame(
 )
 results$improvement <- results$RMSE_before - results$RMSE_after
 
-plot(results$org, ylim = range(results[4:5]), type = 'n', bty = 'o', las = 1)
+plot(results$org, ylim = range(results[4:5]),
+     type = 'n', bty = 'o', las = 1,
+     xlab = 'Organization', ylab = 'RMSE',
+     main = 'Change in params',
+     sub  = 'blue = before, red = after aggregation')
+
 segments(results$org, results$RMSE_before,
          results$org, results$RMSE_after,
          lwd = 6)
-points(results$org, results$RMSE_before, pch = 19, col = 2, cex = 1.6)
-points(results$org, results$RMSE_after, pch = 19, col = 4, cex = 1.6)
+points(results$org, results$RMSE_before, pch = 19, col = 4, cex = 1.6)
+points(results$org, results$RMSE_after, pch = 19, col = 2, cex = 1.6)
 
 # ------------------------------------------------------------
 # 9. AGGREGATION
@@ -248,46 +257,56 @@ local_params <- rbind(
   Org3 = org3_params
 )
 
-new_global_params <- colMeans(local_params)
+aggregated_params <- colMeans(local_params)
 
 op <- par(c('mfrow', 'mar'))
 par(mar = c(2, 2, 2, 2), mfrow = c(2, 2))
 
 # should have used dplyr + ggplot2!
-plot_org(1, org1_data, org1_params, new_global_params, 2)
-plot_org(2, org2_data, org2_params, new_global_params, 3)
-plot_org(3, org3_data, org3_params, new_global_params, 4)
+plot_org(1, tail(org1_data, 75), org1_params, aggregated_params, 2)
+plot_org(2, tail(org2_data, 75), org2_params, aggregated_params, 3)
+plot_org(3, tail(org3_data, 75), org3_params, aggregated_params, 4)
 
-plot(Petal.Length ~ Petal.Width, iris, type = 'n', bty = 'l', main = paste('Population: round', iter_number))
-points(Petal.Length ~ Petal.Width, org1_window, pch = 19, col = 2)
-points(Petal.Length ~ Petal.Width, org2_window, pch = 20, col = 3)
-points(Petal.Length ~ Petal.Width, org3_window, pch = 21, col = 4)
+plot(Petal.Length ~ Petal.Width, iris, type = 'n', bty = 'l', las = 1,
+     main = paste('Population: round', iter_number))
+points(Petal.Length ~ Petal.Width, iris, pch = 19, col = 8, cex = 1)
+points(Petal.Length ~ jitter(Petal.Width, 1), org1_window, pch = 21, bg = 2)
+points(Petal.Length ~ jitter(Petal.Width, 1), org2_window, pch = 21, bg = 3)
+points(Petal.Length ~ jitter(Petal.Width, 1), org3_window, pch = 21, bg = 4)
 abline(org1_params, col = 2, lwd = 2)
 abline(org2_params, col = 3, lwd = 2)
 abline(org3_params, col = 4, lwd = 2)
-abline(new_global_params, col = 1)
-legend('topleft', legend = c('global', paste('org', 1:3)), lty = 1, col = 1:4)
+abline(aggregated_params, col = 1, lwd = 2)
+# legend('topleft', legend = c('global', paste('org', 1:3)), lty = 1, col = 1:4)
 
 par(op)
 #
 # lm1 <- lm(Petal.Length ~ Petal.Width, org1_data)$coeff
 # plot(Petal.Length ~ Petal.Width, org1_data)
 # abline(lm1, lwd = 3)
-# abline(new_global_params, col = 2, lwd = 3)
+# abline(aggregated_params, col = 2, lwd = 3)
 
 # ------------------------------------------------------------
 # DISPLAY THE NEW GLOBAL PARAMETERS
 # ------------------------------------------------------------
 
 
-cat(
-  'Petal.Length = ',
-  round(new_global_params['intercept'], 3),
-  ' + ',
-  round(new_global_params['slope'], 3),
-  ' * Petal.Width\n',
-  sep = ''
-)
+print_params <- function(name, p, d = 3) {
+  cat(
+    name, '\n',
+    'Petal.Length = ',
+    round(p['intercept'], d),
+    ' + ',
+    round(p['slope'], d),
+    ' * Petal.Width\n\n',
+    sep = ''
+  )
+
+}
+
+print_params('Starting params\n', global_params)
+print_params('Aggregated params\n', aggregated_params)
+
 
 print(results, row.names = FALSE)
 
@@ -300,7 +319,7 @@ print(results, row.names = FALSE)
 #
 # IMPORTANT:
 #
-# new_global_params are the result of THIS round.
+# aggregated_params are the result of THIS round.
 #
 # They become the global parameters available at the
 # START of the next round.
@@ -311,7 +330,7 @@ print(results, row.names = FALSE)
 #        iter_number <- 2
 #
 #   2. Change global_params to:
-#        global_params <- new_global_params
+#        global_params <- aggregated_params
 #
 #   3. Run the script again.
 #
