@@ -2,8 +2,14 @@
 title: 'Federated Learning simulation'
 ---
 
+
+
+::: {.panel-tabset}
+
 ```{r}
 #| echo: false
+#| results: asis
 source('sim-fl.R')
 ```
 
+:::
